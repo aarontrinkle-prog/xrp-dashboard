@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XRP · Kalshi Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0e0e0e;
+    color: #e8e8e8;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    min-height: 100vh;
+    padding: 16px;
+  }
+  h1 {
+    font-size: 14px;
+    font-weight: 400;
+    color: #888;
+    letter-spacing: 0.1em;
+    margin-bottom: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: #2a2a2a; display: inline-block; margin-right: 6px; }
+  .dot.live { background: #1D9E75; box-shadow: 0 0 6px #1D9E75; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 8px; }
+  .card {
+    background: #181818;
+    border: 0.5px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .card-label { font-size: 10px; color: #555; margin-bottom: 4px; letter-spacing: 0.05em; }
+  .card-value { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+  .card-sub { font-size: 10px; margin-top: 3px; color: #666; }
+  .card-value.sm { font-size: 15px; }
+  .card-value.xs { font-size: 13px; }
+  .green { color: #1D9E75; }
+  .red { color: #E24B4A; }
+  .amber { color: #EF9F27; }
+  .blue { color: #378ADD; }
+  .muted { color: #555; }
+  .tf-row { display: flex; gap: 6px; margin-bottom: 8px; align-items: center; }
+  .tf-btn {
+    background: #181818;
+    border: 0.5px solid #2a2a2a;
+    border-radius: 4px;
+    color: #888;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    padding: 4px 12px;
+    transition: all 0.15s;
+  }
+  .tf-btn:hover { border-color: #444; color: #ccc; }
+  .tf-btn.active { background: #1a2a1a; border-color: #1D9E75; color: #1D9E75; }
+  .refresh-btn {
+    background: #181818;
+    border: 0.5px solid #2a2a2a;
+    border-radius: 4px;
+    color: #888;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    padding: 4px 14px;
+    transition: all 0.15s;
+  }
+  .refresh-btn:hover { border-color: #378ADD; color: #378ADD; }
+  .chart-wrap { position: relative; width: 100%; height: 180px; margin-bottom: 4px; }
+  .rsi-wrap { position: relative; width: 100%; height: 70px; margin-bottom: 10px; }
+  .squeeze-bar {
+    background: #181818;
+    border: 0.5px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    border-left: 3px solid #2a2a2a;
+  }
+  .squeeze-bar.tight { border-left-color: #E24B4A; }
+  .squeeze-bar.mild { border-left-color: #EF9F27; }
+  .squeeze-bar.none { border-left-color: #2a2a2a; }
+  .analysis-btn {
+    width: 100%;
+    background: #1a2a1a;
+    border: 0.5px solid #1D9E75;
+    border-radius: 8px;
+    color: #1D9E75;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    padding: 12px;
+    transition: all 0.15s;
+    margin-bottom: 10px;
+  }
+  .analysis-btn:hover { background: #1D9E75; color: #0e0e0e; }
+  .copy-area {
+    display: none;
+    background: #141414;
+    border: 0.5px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 10px;
+  }
+  .copy-area.visible { display: block; }
+  .copy-area textarea {
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: #aaa;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    resize: none;
+    outline: none;
+    line-height: 1.6;
+  }
+  .copy-btn {
+    background: #1a2533;
+    border: 0.5px solid #378ADD;
+    border-radius: 4px;
+    color: #378ADD;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    margin-top: 8px;
+    padding: 6px 16px;
+    transition: all 0.15s;
+  }
+  .copy-btn:hover { background: #378ADD; color: #0e0e0e; }
+  .status-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .error-msg { font-size: 10px; color: #E24B4A; margin-top: 6px; min-height: 14px; }
+  .ticker-badge {
+    font-size: 10px;
+    color: #555;
+    background: #181818;
+    border: 0.5px solid #2a2a2a;
+    border-radius: 4px;
+    padding: 2px 8px;
+  }
+  .threshold-line { font-size: 10px; color: #555; margin-top: 3px; }
+</style>
+</head>
+<body>
+
+<h1>
+  <span><span class="dot live" id="liveDot"></span>XRP · KALSHI DASHBOARD</span>
+  <span class="ticker-badge">KXXRP15M</span>
+</h1>
+
+<div class="status-row">
+  <span style="font-size:10px; color:#555;" id="lastUpdate">initializing...</span>
+  <button class="refresh-btn" onclick="refreshAll()">↻ refresh</button>
+</div>
+
+<div class="grid2">
+  <div class="card">
+    <div class="card-label">XRP spot</div>
+    <div class="card-value blue" id="spotPrice">–</div>
+    <div class="card-sub" id="spotChange">–</div>
+  </div>
+  <div class="card">
+    <div class="card-label">kalshi threshold</div>
+    <div class="card-value" id="kalshiThreshold">–</div>
+    <div class="card-sub" id="vsThreshold">–</div>
+  </div>
+  <div class="card">
+    <div class="card-label">time left</div>
+    <div class="card-value" id="timeLeft">–</div>
+    <div class="card-sub" id="marketTicker">–</div>
+  </div>
+  <div class="card">
+    <div class="card-label">yes / no</div>
+    <div class="card-value sm" id="yesNo">–</div>
+    <div class="card-sub" id="marketStatus">–</div>
+  </div>
+</div>
+
+<div class="tf-row">
+  <button class="tf-btn active" id="btn1m" onclick="setTF('1m')">1m</button>
+  <button class="tf-btn" id="btn5m" onclick="setTF('5m')">5m</button>
+  <button class="tf-btn" id="btn15m" onclick="setTF('15m')">15m</button>
+  <span style="font-size:10px; color:#555; margin-left:4px;" id="tfStatus"></span>
+</div>
+
+<div class="grid3">
+  <div class="card">
+    <div class="card-label">RSI(6)</div>
+    <div class="card-value sm" id="rsi6">–</div>
+  </div>
+  <div class="card">
+    <div class="card-label">RSI(12)</div>
+    <div class="card-value sm" id="rsi12">–</div>
+  </div>
+  <div class="card">
+    <div class="card-label">RSI(24)</div>
+    <div class="card-value sm" id="rsi24">–</div>
+  </div>
+</div>
+
+<div class="grid3">
+  <div class="card">
+    <div class="card-label">BB upper</div>
+    <div class="card-value xs" id="bbUpper">–</div>
+  </div>
+  <div class="card">
+    <div class="card-label">BB mid</div>
+    <div class="card-value xs" id="bbMid">–</div>
+  </div>
+  <div class="card">
+    <div class="card-label">BB lower</div>
+    <div class="card-value xs" id="bbLower">–</div>
+  </div>
+</div>
+
+<div class="squeeze-bar none" id="squeezeBar">
+  <div class="card-label">bb squeeze detector</div>
+  <div style="font-size:12px; margin-top:3px;" id="squeezeStatus">–</div>
+</div>
+
+<div class="chart-wrap">
+  <canvas id="priceChart" role="img" aria-label="XRP price chart with Bollinger Bands"></canvas>
+</div>
+<div class="rsi-wrap">
+  <canvas id="rsiChart" role="img" aria-label="RSI indicator chart"></canvas>
+</div>
+
+<div class="card" style="margin-bottom:10px;">
+  <div class="card-label" style="margin-bottom:6px;">order book — top 5</div>
+  <div style="display:grid; grid-template-columns:1fr auto auto 1fr; gap:3px 10px; font-size:11px;" id="orderBook">
+    <span style="color:#555; text-align:right;">qty</span>
+    <span style="color:#1D9E75;">bid</span>
+    <span style="color:#E24B4A;">ask</span>
+    <span style="color:#555;">qty</span>
+  </div>
+</div>
+
+<button class="analysis-btn" onclick="buildAnalysis()">⬡ generate cycle analysis text</button>
+
+<div class="copy-area" id="copyArea">
+  <div class="card-label" style="margin-bottom:6px;">copy this → paste into claude chat</div>
+  <textarea id="analysisText" rows="12" readonly></textarea>
+  <button class="copy-btn" onclick="copyText()">copy to clipboard</button>
+  <div style="font-size:10px; color:#1D9E75; margin-top:6px; display:none;" id="copiedMsg">✓ copied!</div>
+</div>
+
+<div class="error-msg" id="errorMsg"></div>
+
+<script>
+let currentTF = '1m';
+let priceChart, rsiChart;
+let dashData = {};
+let timerInterval;
+
+const KALSHI_DIRECT = 'https://api.elections.kalshi.com/trade-api/v2';
+const BINANCE_DIRECT = 'https://api.binance.us/api/v3';
+const PROXIES = [
+  'https://corsproxy.io/?url=',
+  'https://api.allorigins.win/raw?url=',
+  'https://proxy.cors.sh/',
+];
+
+async function safeFetch(url) {
+  const WORKER = 'https://xrp-proxy.aaron-trinkle.workers.dev/?url=';
+  const r = await fetch(WORKER + encodeURIComponent(url));
+  const text = await r.text();
+  console.log('worker response for', url.substring(0,50), ':', text.substring(0,100));
+  return JSON.parse(text);
+}
+
+async function init() {
+  await refreshAll();
+  setInterval(refreshAll, 30000);
+}
+
+function setTF(tf) {
+  currentTF = tf;
+  ['1m','5m','15m'].forEach(t => {
+    const b = document.getElementById('btn'+t);
+    if(b) { b.classList.toggle('active', t===tf); }
+  });
+  fetchBinance();
+}
+
+async function refreshAll() {
+  document.getElementById('liveDot').className = 'dot';
+  await Promise.all([fetchKalshi(), fetchBinance(), fetchOrderBook()]);
+  document.getElementById('liveDot').className = 'dot live';
+  document.getElementById('lastUpdate').textContent = 'updated ' + new Date().toLocaleTimeString();
+}
+
+async function fetchOrderBook() {
+  try {
+    const url = `${BINANCE_DIRECT}/depth?symbol=XRPUSDT&limit=5`;
+    const data = await safeFetch(url);
+    if(!data.bids || !data.asks) return;
+    const bids = data.bids.slice(0,5);
+    const asks = data.asks.slice(0,5);
+    dashData.orderBook = {bids, asks};
+    let html = '<span style="color:#555;text-align:right;font-size:10px;">qty</span><span style="color:#1D9E75;font-size:10px;">bid</span><span style="color:#E24B4A;font-size:10px;">ask</span><span style="color:#555;font-size:10px;">qty</span>';
+    for(let i=0;i<5;i++) {
+      const bid = bids[i] || ['–','–'];
+      const ask = asks[i] || ['–','–'];
+      const bidQty = parseFloat(bid[1]).toFixed(0);
+      const askQty = parseFloat(ask[1]).toFixed(0);
+      const bidPrice = parseFloat(bid[0]).toFixed(4);
+      const askPrice = parseFloat(ask[0]).toFixed(4);
+      const bidStyle = i===0 ? 'font-weight:500;' : '';
+      const askStyle = i===0 ? 'font-weight:500;' : '';
+      html += `<span style="color:#555;text-align:right;font-size:11px;">${bidQty}</span>`;
+      html += `<span style="color:#1D9E75;font-size:11px;${bidStyle}">${bidPrice}</span>`;
+      html += `<span style="color:#E24B4A;font-size:11px;${askStyle}">${askPrice}</span>`;
+      html += `<span style="color:#555;font-size:11px;">${askQty}</span>`;
+    }
+    document.getElementById('orderBook').innerHTML = html;
+  } catch(e) {
+    console.log('orderbook error:', e.message);
+  }
+}
+
+async function fetchKalshi() {
+  try {
+    const kalshiUrl = `${KALSHI_DIRECT}/markets?series_ticker=KXXRP15M&limit=20&status=open`;
+    let raw = await safeFetch(kalshiUrl);
+    const data = (raw && raw.contents) ? JSON.parse(raw.contents) : raw;
+    if(!data.markets || !data.markets.length) {
+      document.getElementById('kalshiThreshold').textContent = 'no markets found';
+      return;
+    }
+    const now = Date.now();
+    const markets = data.markets.sort((a,b) => {
+      const aClose = new Date(a.close_time).getTime();
+      const bClose = new Date(b.close_time).getTime();
+      const aFuture = aClose > now;
+      const bFuture = bClose > now;
+      if(aFuture && !bFuture) return -1;
+      if(!aFuture && bFuture) return 1;
+      return aFuture ? aClose - bClose : bClose - aClose;
+    });
+    const m = markets[0];
+    dashData.market = m;
+
+    // Try multiple fields for strike price
+    let strike = parseFloat(m.floor_strike ?? m.cap_strike ?? m.strike_price ?? 0) || null;
+    const displayThreshold = strike ? '$' + strike.toFixed(4) : (m.yes_sub_title || m.subtitle || '–');
+
+    dashData.strike = strike;
+    document.getElementById('kalshiThreshold').textContent = displayThreshold;
+    document.getElementById('marketTicker').textContent = m.ticker || '–';
+
+    const yesDollars = m.yes_ask_dollars ?? m.yes_bid_dollars ?? null;
+    const noDollars = m.no_ask_dollars ?? m.no_bid_dollars ?? null;
+    const yes = yesDollars !== null ? Math.round(parseFloat(yesDollars)*100) + '¢' : '–';
+    const no = noDollars !== null ? Math.round(parseFloat(noDollars)*100) + '¢' : '–';
+    document.getElementById('yesNo').textContent = `Y ${yes}  /  N ${no}`;
+    document.getElementById('marketStatus').textContent = m.status || 'open';
+
+    if(m.close_time) startCountdown(new Date(m.close_time));
+    updateVsThreshold();
+    clearError('kalshi');
+  } catch(e) {
+    document.getElementById('kalshiThreshold').textContent = 'error';
+    setError('kalshi: ' + e.message);
+  }
+}
+
+function startCountdown(closeTime) {
+  if(timerInterval) clearInterval(timerInterval);
+  function tick() {
+    const remaining = Math.max(0, Math.floor((closeTime - Date.now()) / 1000));
+    const mins = Math.floor(remaining/60);
+    const secs = remaining%60;
+    const el = document.getElementById('timeLeft');
+    el.textContent = mins + ':' + String(secs).padStart(2,'0');
+    el.className = 'card-value ' + (remaining < 60 ? 'red' : remaining < 120 ? 'amber' : '');
+  }
+  tick();
+  timerInterval = setInterval(tick, 1000);
+}
+
+function updateVsThreshold() {
+  if(!dashData.strike || !dashData.spot) return;
+  const diff = (dashData.spot - parseFloat(dashData.strike));
+  const el = document.getElementById('vsThreshold');
+  el.textContent = (diff >= 0 ? '+' : '') + diff.toFixed(4) + ' vs threshold';
+  el.className = 'card-sub ' + (diff >= 0 ? 'green' : 'red');
+}
+
+async function fetchBinance() {
+  try {
+    document.getElementById('tfStatus').textContent = 'fetching...';
+    const binanceUrl = `${BINANCE_DIRECT}/klines?symbol=XRPUSDT&interval=${currentTF}&limit=60`;
+    let data = await safeFetch(binanceUrl);
+    // allorigins wraps in {contents: ...}
+    if(data && data.contents) data = JSON.parse(data.contents);
+    if(!Array.isArray(data) || !data.length) throw new Error('empty data');
+
+    const closes = data.map(c => parseFloat(c[4]));
+    const spot = closes[closes.length-1];
+    dashData.spot = spot;
+
+    document.getElementById('spotPrice').textContent = '$' + spot.toFixed(4);
+    const prevClose = closes[closes.length-2];
+    const chg = ((spot-prevClose)/prevClose*100);
+    const chgEl = document.getElementById('spotChange');
+    chgEl.textContent = (chg>=0?'+':'') + chg.toFixed(3) + '%';
+    chgEl.className = 'card-sub ' + (chg>=0?'green':'red');
+
+    const bb = calcBB(closes, 20, 2);
+    dashData.bb = bb;
+    document.getElementById('bbUpper').textContent = bb.upper.toFixed(4);
+    document.getElementById('bbMid').textContent = bb.mid.toFixed(4);
+    document.getElementById('bbLower').textContent = bb.lower.toFixed(4);
+
+    const bw = (bb.upper-bb.lower)/bb.mid*100;
+    dashData.bw = bw;
+    const sqBar = document.getElementById('squeezeBar');
+    const sqSt = document.getElementById('squeezeStatus');
+    if(bw < 0.10) {
+      sqBar.className='squeeze-bar tight';
+      sqSt.innerHTML='<span style="color:#E24B4A">⚠ TIGHT SQUEEZE ('+bw.toFixed(3)+'%) — vol breakout imminent</span>';
+    } else if(bw < 0.20) {
+      sqBar.className='squeeze-bar mild';
+      sqSt.innerHTML='<span style="color:#EF9F27">mild squeeze ('+bw.toFixed(3)+'%)</span>';
+    } else {
+      sqBar.className='squeeze-bar none';
+      sqSt.innerHTML='<span style="color:#555">no squeeze ('+bw.toFixed(3)+'%)</span>';
+    }
+
+    const rsi6 = calcRSI(closes, 6);
+    const rsi12 = calcRSI(closes, 12);
+    const rsi24 = calcRSI(closes, 24);
+    dashData.rsi = {rsi6, rsi12, rsi24};
+    setRSIEl('rsi6', rsi6);
+    setRSIEl('rsi12', rsi12);
+    setRSIEl('rsi24', rsi24);
+
+    const labels = data.slice(-30).map(c => {
+      const d = new Date(c[0]);
+      return d.getHours()+':'+String(d.getMinutes()).padStart(2,'0');
+    });
+    const prices = data.slice(-30).map(c => parseFloat(c[4]));
+
+    const rsiSeries = [];
+    for(let i=7; i<=data.length; i++) {
+      rsiSeries.push(calcRSI(data.slice(0,i).map(c=>parseFloat(c[4])),6));
+    }
+
+    drawPriceChart(labels, prices, bb, dashData.strike);
+    drawRSIChart(labels.slice(-Math.min(30, rsiSeries.length)), rsiSeries.slice(-30));
+
+    updateVsThreshold();
+    document.getElementById('tfStatus').textContent = '';
+    clearError('binance');
+  } catch(e) {
+    document.getElementById('tfStatus').textContent = 'error';
+    setError('binance: ' + e.message);
+  }
+}
+
+function setRSIEl(id, val) {
+  const el = document.getElementById(id);
+  el.textContent = val.toFixed(1);
+  el.className = 'card-value sm ' + (val < 30 ? 'green' : val > 70 ? 'red' : '');
+}
+
+function calcBB(closes, period, mult) {
+  const slice = closes.slice(-period);
+  const mid = slice.reduce((a,b)=>a+b,0)/period;
+  const std = Math.sqrt(slice.reduce((a,b)=>a+Math.pow(b-mid,2),0)/period);
+  return {upper:mid+mult*std, mid, lower:mid-mult*std};
+}
+
+function calcRSI(closes, period) {
+  if(closes.length < period*2) return 50;
+  // Wilder's Smoothed RSI - matches Binance/TradingView
+  let gains=0, losses=0;
+  // First average over initial period
+  for(let i=1; i<=period; i++) {
+    const d = closes[i]-closes[i-1];
+    if(d>0) gains+=d; else losses+=Math.abs(d);
+  }
+  let avgGain = gains/period;
+  let avgLoss = losses/period;
+  // Wilder's smoothing for remaining candles
+  for(let i=period+1; i<closes.length; i++) {
+    const d = closes[i]-closes[i-1];
+    const g = d>0 ? d : 0;
+    const l = d<0 ? Math.abs(d) : 0;
+    avgGain = (avgGain*(period-1) + g) / period;
+    avgLoss = (avgLoss*(period-1) + l) / period;
+  }
+  if(avgLoss === 0) return 100;
+  const rs = avgGain/avgLoss;
+  return 100-(100/(1+rs));
+}
+
+function drawPriceChart(labels, prices, bb, strike) {
+  const ctx = document.getElementById('priceChart').getContext('2d');
+  if(priceChart) priceChart.destroy();
+  const datasets = [
+    {label:'price', data:prices, borderColor:'#378ADD', borderWidth:1.5, pointRadius:0, tension:0.3, fill:false},
+    {label:'upper', data:Array(prices.length).fill(parseFloat(bb.upper.toFixed(4))), borderColor:'#EF9F27', borderWidth:0.8, pointRadius:0, borderDash:[4,3], fill:false},
+    {label:'mid', data:Array(prices.length).fill(parseFloat(bb.mid.toFixed(4))), borderColor:'#444', borderWidth:0.8, pointRadius:0, borderDash:[2,2], fill:false},
+    {label:'lower', data:Array(prices.length).fill(parseFloat(bb.lower.toFixed(4))), borderColor:'#EF9F27', borderWidth:0.8, pointRadius:0, borderDash:[4,3], fill:false},
+  ];
+  if(strike) {
+    datasets.push({label:'threshold', data:Array(prices.length).fill(parseFloat(parseFloat(strike).toFixed(4))), borderColor:'#E24B4A', borderWidth:1, pointRadius:0, borderDash:[6,3], fill:false});
+  }
+  priceChart = new Chart(ctx, {
+    type:'line',
+    data:{labels, datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false, animation:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{ticks:{font:{size:8}, maxTicksLimit:6, color:'#444'}, grid:{color:'rgba(255,255,255,0.03)'}},
+        y:{ticks:{font:{size:8}, color:'#444'}, grid:{color:'rgba(255,255,255,0.03)'}}
+      }
+    }
+  });
+}
+
+function drawRSIChart(labels, rsiVals) {
+  const ctx = document.getElementById('rsiChart').getContext('2d');
+  if(rsiChart) rsiChart.destroy();
+  rsiChart = new Chart(ctx, {
+    type:'line',
+    data:{
+      labels,
+      datasets:[
+        {label:'RSI6', data:rsiVals, borderColor:'#D4537E', borderWidth:1.5, pointRadius:0, tension:0.3, fill:false},
+        {label:'70', data:Array(labels.length).fill(70), borderColor:'#E24B4A', borderWidth:0.5, pointRadius:0, borderDash:[2,2], fill:false},
+        {label:'30', data:Array(labels.length).fill(30), borderColor:'#1D9E75', borderWidth:0.5, pointRadius:0, borderDash:[2,2], fill:false},
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false, animation:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{ticks:{display:false}, grid:{display:false}},
+        y:{min:0, max:100, ticks:{font:{size:8}, color:'#444', stepSize:50}, grid:{color:'rgba(255,255,255,0.03)'}}
+      }
+    }
+  });
+}
+
+async function buildAnalysis() {
+  const spot = dashData.spot ? '$'+dashData.spot.toFixed(4) : '–';
+  const threshold = document.getElementById('kalshiThreshold').textContent;
+  const timeLeft = document.getElementById('timeLeft').textContent;
+  const yesno = document.getElementById('yesNo').textContent;
+  const vsT = document.getElementById('vsThreshold').textContent;
+
+  document.getElementById('analysisText').value = 'fetching all 3 timeframes...';
+  document.getElementById('copyArea').classList.add('visible');
+
+  const tfs = ['1m','5m','15m'];
+  const tfData = {};
+
+  for(const tf of tfs) {
+    try {
+      const binanceUrl = `${BINANCE_DIRECT}/klines?symbol=XRPUSDT&interval=${tf}&limit=60`;
+      const data = await safeFetch(binanceUrl);
+      if(Array.isArray(data) && data.length) {
+        const closes = data.map(c => parseFloat(c[4]));
+        const bb = calcBB(closes, 20, 2);
+        const bw = ((bb.upper-bb.lower)/bb.mid*100).toFixed(3);
+        const sqLabel = bw < 0.10 ? 'TIGHT SQUEEZE' : bw < 0.20 ? 'mild squeeze' : 'no squeeze';
+        tfData[tf] = {
+          rsi6: calcRSI(closes,6).toFixed(1),
+          rsi12: calcRSI(closes,12).toFixed(1),
+          rsi24: calcRSI(closes,24).toFixed(1),
+          bbU: bb.upper.toFixed(4),
+          bbM: bb.mid.toFixed(4),
+          bbL: bb.lower.toFixed(4),
+          squeeze: sqLabel + ' (' + bw + '%)'
+        };
+      }
+    } catch(e) {
+      tfData[tf] = null;
+    }
+  }
+
+  const tfBlock = (tf) => {
+    const d = tfData[tf];
+    if(!d) return `[${tf}] failed to load`;
+    return `BOLLINGER BANDS (${tf})
+  Upper : ${d.bbU}
+  Mid   : ${d.bbM}
+  Lower : ${d.bbL}
+  Squeeze: ${d.squeeze}
+
+RSI (${tf})
+  RSI(6)  : ${d.rsi6}
+  RSI(12) : ${d.rsi12}
+  RSI(24) : ${d.rsi24}`;
+  };
+
+  const text = `LIVE DASHBOARD — ${new Date().toLocaleTimeString()}
+
+KALSHI
+  Threshold : ${threshold}
+  Time left : ${timeLeft}
+  Yes / No  : ${yesno}
+
+SPOT
+  XRP price : ${spot}
+  ${vsT}
+
+${tfBlock('1m')}
+
+${tfBlock('5m')}
+
+${tfBlock('15m')}
+
+ORDER BOOK (top 3 bids/asks)
+${dashData.orderBook ? dashData.orderBook.bids.slice(0,3).map((b,i) => {
+  const a = dashData.orderBook.asks[i];
+  return '  Bid: '+parseFloat(b[0]).toFixed(4)+' ('+parseFloat(b[1]).toFixed(0)+') | Ask: '+parseFloat(a[0]).toFixed(4)+' ('+parseFloat(a[1]).toFixed(0)+')';
+}).join('\n') : '  unavailable'}
+
+Please give cycle call in format:
+Next threshold / Direction / Conviction / Bet size / Target exit / Stop loss / Strategy`;
+
+  document.getElementById('analysisText').value = text;
+  document.getElementById('analysisText').rows = text.split('\n').length + 1;
+}
+
+function copyText() {
+  const ta = document.getElementById('analysisText');
+  ta.select();
+  document.execCommand('copy');
+  const msg = document.getElementById('copiedMsg');
+  msg.style.display = 'block';
+  setTimeout(() => msg.style.display='none', 2000);
+}
+
+function setError(msg) {
+  document.getElementById('errorMsg').textContent = msg;
+}
+function clearError(src) {
+  const cur = document.getElementById('errorMsg').textContent;
+  if(cur.startsWith(src)) document.getElementById('errorMsg').textContent = '';
+}
+
+init();
+</script>
+</body>
+</html>
